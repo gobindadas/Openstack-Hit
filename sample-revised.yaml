@@ -1,0 +1,105 @@
+description: Create new network and add 2 subnet to the network,2 security groups,2
+  vms in each subnet with floatingIP,attach volume to wach vm
+heat_template_version: '2015-04-30'
+resources:
+  cinder_volume:
+    properties:
+      availability_zone: nova
+      size: 1
+    type: OS::Cinder::Volume
+  demo_key:
+    properties:
+      name: gobinda-test
+    type: OS::Nova::KeyPair
+  demo_net:
+    properties:
+      name: ericsson-net
+      tenant_id: f5ea74b26ec848d68e7a02fdab9ca39f
+    type: OS::Neutron::Net
+  demo_router:
+    properties:
+      external_gateway_info:
+        network: provider
+    type: OS::Neutron::Router
+  demo_subnet:
+    properties:
+      allocation_pools:
+      - end: 192.168.104.30
+        start: 192.168.104.12
+      cidr: 192.168.104.0/24
+      gateway_ip: 192.168.104.1
+      network_id:
+        get_resource: demo_net
+      tenant_id: f5ea74b26ec848d68e7a02fdab9ca39f
+    type: OS::Neutron::Subnet
+  router_interface:
+    properties:
+      router_id:
+        get_resource: demo_router
+      subnet_id:
+        get_resource: demo_subnet
+    type: OS::Neutron::RouterInterface
+  server1:
+    properties:
+      availability_zone: nova
+      flavor: m1.tiny
+      image: cirros
+      key_name:
+        get_resource: demo_key
+      name: vm1
+      networks:
+      - network:
+          get_resource: demo_net
+        port:
+          get_resource: server1_port
+    type: OS::Nova::Server
+  server1_floating_ip:
+    properties:
+      floating_network: provider
+      port_id:
+        get_resource: server1_port
+    type: OS::Neutron::FloatingIP
+  server1_port:
+    properties:
+      fixed_ips:
+      - subnet_id:
+          get_resource: demo_subnet
+      network_id:
+        get_resource: demo_net
+    type: OS::Neutron::Port
+  server2:
+    properties:
+      availability_zone: nova
+      flavor: m1.tiny
+      image: cirros
+      key_name:
+        get_resource: demo_key
+      name: vm2
+      networks:
+      - network:
+          get_resource: demo_net
+        port:
+          get_resource: server2_port
+    type: OS::Nova::Server
+  server2_floating_ip:
+    properties:
+      floating_network: provider
+      port_id:
+        get_resource: server2_port
+    type: OS::Neutron::FloatingIP
+  server2_port:
+    properties:
+      fixed_ips:
+      - subnet_id:
+          get_resource: demo_subnet
+      network_id:
+        get_resource: demo_net
+    type: OS::Neutron::Port
+  volume_attachment:
+    properties:
+      instance_uuid:
+        get_resource: server2
+      mountpoint: /dev/sdb
+      volume_id:
+        get_resource: cinder_volume
+    type: OS::Cinder::VolumeAttachment

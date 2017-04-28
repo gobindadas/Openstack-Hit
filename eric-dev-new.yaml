@@ -1,0 +1,273 @@
+# Author Gobinda Das
+# 1 Virtual Network
+# 2 Subnet with 2 security groups
+# 2 Instances in each subnet with floating ip assigned.
+# storage attached to each instances
+
+description: "Create new network and add 2 subnet to the network,2 vms in each subnet with floatingIP,volume attached"
+heat_template_version: "2015-04-30"
+resources:
+  demo_key:
+    properties:
+      name: gobinda-test
+    type: "OS::Nova::KeyPair"
+  demo_net:
+    properties:
+      name: ericsson-net
+      tenant_id: f5ea74b26ec848d68e7a02fdab9ca39f
+    type: "OS::Neutron::Net"
+  demo_router:
+    properties:
+      external_gateway_info:
+        network: provider
+    type: "OS::Neutron::Router"
+  demo_subnet:
+    properties:
+      allocation_pools:
+        -
+          end: "192.168.104.30"
+          start: "192.168.104.12"
+      cidr: 192.168.104.0/24
+      gateway_ip: "192.168.104.1"
+      network_id:
+        get_resource: demo_net
+      tenant_id: f5ea74b26ec848d68e7a02fdab9ca39f
+    type: "OS::Neutron::Subnet"
+  demo1_subnet:
+    properties:
+      allocation_pools:
+        -
+          end: "192.168.105.30"
+          start: "192.168.105.12"
+      cidr: 192.168.105.0/24
+      gateway_ip: "192.168.105.1"
+      network_id:
+        get_resource: demo_net
+      tenant_id: f5ea74b26ec848d68e7a02fdab9ca39f
+    type: "OS::Neutron::Subnet"
+  router_interface:
+    properties:
+      router_id:
+        get_resource: demo_router
+      subnet_id:
+        get_resource: demo_subnet
+    type: "OS::Neutron::RouterInterface"
+  router1_interface:
+    properties:
+      router_id:
+        get_resource: demo_router
+      subnet_id:
+        get_resource: demo1_subnet
+    type: "OS::Neutron::RouterInterface"
+  security_group_1:
+    properties:
+      description: "Security Group."
+      name: first-security-group
+      rules:
+        -
+          port_range_max: 22
+          port_range_min: 22
+          protocol: tcp
+          remote_ip_prefix: 192.168.104.0/24
+        -
+          protocol: icmp
+          remote_ip_prefix: 192.168.104.0/24
+    type: "OS::Neutron::SecurityGroup"
+  security_group_2:
+    properties:
+      description: "Security Group."
+      name: second-security-group
+      rules:
+        -
+          port_range_max: 22
+          port_range_min: 22
+          protocol: tcp
+          remote_ip_prefix: 192.168.105.0/24
+        -
+          protocol: icmp
+          remote_ip_prefix: 192.168.105.0/24
+    type: "OS::Neutron::SecurityGroup"
+  server1:
+    properties:
+      availability_zone: nova
+      flavor: m1.tiny
+      image: cirros
+      key_name:
+        get_resource: demo_key
+      name: vm1
+      networks:
+        -
+          network:
+            get_resource: demo_net
+          port:
+            get_resource: server1_port
+    type: "OS::Nova::Server"
+  server1_floating_ip:
+    properties:
+      floating_network: provider
+      port_id:
+        get_resource: server1_port
+    type: "OS::Neutron::FloatingIP"
+  server1_port:
+    properties:
+      fixed_ips:
+        -
+          subnet_id:
+            get_resource: demo_subnet
+      network_id:
+        get_resource: demo_net
+      security_groups:
+        -
+          get_resource: security_group_1
+    type: "OS::Neutron::Port"
+  cinder_volume1:
+    type: "OS::Cinder::Volume"
+    properties:
+      size: 1
+      availability_zone: nova
+      multiattach: True
+  volume_attachment1:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      volume_id: { get_resource: cinder_volume1 }
+      instance_uuid: { get_resource: server1 }
+      mountpoint: /dev/sdb
+
+  server2:
+    properties:
+      availability_zone: nova
+      flavor: m1.tiny
+      image: cirros
+      key_name:
+        get_resource: demo_key
+      name: vm2
+      networks:
+        -
+          network:
+            get_resource: demo_net
+          port:
+            get_resource: server2_port
+    type: "OS::Nova::Server"
+  server2_floating_ip:
+    properties:
+      floating_network: provider
+      port_id:
+        get_resource: server2_port
+    type: "OS::Neutron::FloatingIP"
+  server2_port:
+    properties:
+      fixed_ips:
+        -
+          subnet_id:
+            get_resource: demo_subnet
+      network_id:
+        get_resource: demo_net
+      security_groups:
+        -
+          get_resource: security_group_1
+    type: "OS::Neutron::Port"
+  cinder_volume2:
+    type: "OS::Cinder::Volume"
+    properties:
+      size: 1
+      availability_zone: nova
+      multiattach: True
+  volume_attachment2:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      volume_id: { get_resource: cinder_volume2 }
+      instance_uuid: { get_resource: server2 }
+      mountpoint: /dev/sdb
+
+  server3:
+    properties:
+      availability_zone: nova
+      flavor: m1.tiny
+      image: cirros
+      key_name:
+        get_resource: demo_key
+      name: vm3
+      networks:
+        -
+          network:
+            get_resource: demo_net
+          port:
+            get_resource: server3_port
+    type: "OS::Nova::Server"
+  server3_floating_ip:
+    properties:
+      floating_network: provider
+      port_id:
+        get_resource: server3_port
+    type: "OS::Neutron::FloatingIP"
+  server3_port:
+    properties:
+      fixed_ips:
+        -
+          subnet_id:
+            get_resource: demo1_subnet
+      network_id:
+        get_resource: demo_net
+      security_groups:
+        -
+          get_resource: security_group_2
+    type: "OS::Neutron::Port"
+  cinder_volume3:
+    type: "OS::Cinder::Volume"
+    properties:
+      size: 1
+      availability_zone: nova
+      multiattach: True
+  volume_attachment3:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      volume_id: { get_resource: cinder_volume3 }
+      instance_uuid: { get_resource: server3 }
+      mountpoint: /dev/sdb
+
+  server4:
+    properties:
+      availability_zone: nova
+      flavor: m1.tiny
+      image: cirros
+      key_name:
+        get_resource: demo_key
+      name: vm4
+      networks:
+        -
+          network:
+            get_resource: demo_net
+          port:
+            get_resource: server4_port
+    type: "OS::Nova::Server"
+  server4_floating_ip:
+    properties:
+      floating_network: provider
+      port_id:
+        get_resource: server4_port
+    type: "OS::Neutron::FloatingIP"
+  server4_port:
+    properties:
+      fixed_ips:
+        -
+          subnet_id:
+            get_resource: demo1_subnet
+      network_id:
+        get_resource: demo_net
+      security_groups:
+        -
+          get_resource: security_group_2
+    type: "OS::Neutron::Port"
+  cinder_volume4:
+    type: "OS::Cinder::Volume"
+    properties:
+      size: 1
+      availability_zone: nova
+      multiattach: True
+  volume_attachment4:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      volume_id: { get_resource: cinder_volume4 }
+      instance_uuid: { get_resource: server4 }
+      mountpoint: /dev/sdb
+
